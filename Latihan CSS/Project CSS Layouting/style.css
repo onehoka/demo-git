@@ -1,0 +1,26 @@
+#logo {
+    transition: ease-in-out;
+    border: black;
+}
+
+ul { 
+    transition: all 2s;
+    font-size: 20px;
+    text-align: center;
+}
+
+ul :hover {
+    font-size: 30px   ;
+}
+
+h1 {display: inline-block;
+color: rgb(2, 7, 7);
+}
+
+footer {text-align: right;}
+
+p.ex1 {display: inline-block;}
+
+body {background-color: green;}
+
+header {background-color: white;}

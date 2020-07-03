@@ -1,0 +1,35 @@
+h1 {
+    font-weight: 800;
+    color: blue;
+    }
+p {
+color: brown;
+}
+#website-tittle
+{
+padding: 10px;
+border-style: solid;
+}
+.menu {
+margin: 3rem;
+border-style: solid;
+border-color: darkblue;
+}
+button:hover {
+background-color: chocolate;
+}
+div p {background-color: coral;}
+
+img {width: 100px;
+}
+
+#logo {
+    background-color: darkblue;
+}
+
+.gambar {
+    border: 1px solid black;
+}
+
+.gambar_kecil
+
