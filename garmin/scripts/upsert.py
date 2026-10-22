@@ -19,13 +19,20 @@ have to convert units:
 
 Rows are keyed by date (daily) and start_utc (activities). An existing row is
 updated field by field: a value present in the input replaces the stored one,
-a missing value never erases what is already stored.
+a missing value never erases what is already stored. Running the same file
+twice is a no-op: updated_at only moves when a stored value actually changes.
+
+Days with no data at all (watch not worn, sync gap) get no row. After the
+upsert, any dates missing between the first and last row of daily.csv are
+listed so they can be fetched again.
 """
 
 import csv
 import json
+import os
 import sys
-from datetime import datetime, timedelta, timezone
+import tempfile
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
@@ -112,13 +119,20 @@ def load(path, key):
         return {row[key]: row for row in csv.DictReader(f)}
 
 
-def save(path, header, rows, key):
+def save(path, header, rows):
+    # Write to a temp file and swap it in, so a crash never leaves a half-written CSV.
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
-        writer.writeheader()
-        for k in sorted(rows):
-            writer.writerow({h: rows[k].get(h, "") for h in header})
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
+            writer.writeheader()
+            for k in sorted(rows):
+                writer.writerow({h: rows[k].get(h, "") for h in header})
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
 
 def convert(raw, columns):
@@ -131,12 +145,44 @@ def convert(raw, columns):
     return out
 
 
+def same(stored, v):
+    # CSV values come back as strings; compare numbers by value so 30 == "30.0".
+    if str(stored) == str(v):
+        return True
+    try:
+        return float(stored) == float(v)
+    except (TypeError, ValueError):
+        return False
+
+
 def merge(existing, new, now):
-    changed = any(str(existing.get(k, "")) != str(v) for k, v in new.items())
-    if changed:
-        existing.update({k: v for k, v in new.items()})
+    diff = {k: v for k, v in new.items() if not same(existing.get(k, ""), v)}
+    if diff:
+        existing.update(diff)
         existing["updated_at"] = now
-    return changed
+    return bool(diff)
+
+
+def norm_date(d):
+    return date.fromisoformat(str(d)[:10]).isoformat()
+
+
+def norm_start(s):
+    # Key on minute precision so "22:05" and "22:05:00" are the same activity.
+    return datetime.fromisoformat(str(s).rstrip("Z")).strftime("%Y-%m-%dT%H:%M")
+
+
+def missing_days(dates):
+    if not dates:
+        return []
+    have = {date.fromisoformat(d) for d in dates}
+    d, last = min(have), max(have)
+    gaps = []
+    while d < last:
+        d += timedelta(days=1)
+        if d not in have:
+            gaps.append(d.isoformat())
+    return gaps
 
 
 def local_time(start_utc, offset_s):
@@ -152,32 +198,48 @@ def main(inbox):
 
     daily = load(DAILY_CSV, "date")
     added = updated = 0
-    for date, raw in payload.get("daily", {}).items():
-        new = convert(raw, DAILY_COLUMNS)
-        if not new:
+    for day, raw in (payload.get("daily") or {}).items():
+        try:
+            day = norm_date(day)
+        except ValueError:
+            print(f"daily: skipping bad date {day!r}", file=sys.stderr)
             continue
-        row = daily.setdefault(date, {"date": date})
-        is_new = len(row) == 1
+        new = convert(raw or {}, DAILY_COLUMNS)
+        if not new:
+            print(f"daily: no data for {day}, skipped")
+            continue
+        is_new = day not in daily
+        row = daily.setdefault(day, {"date": day})
         if merge(row, new, now):
             added += is_new
             updated += not is_new
-    save(DAILY_CSV, DAILY_HEADER, daily, "date")
+    save(DAILY_CSV, DAILY_HEADER, daily)
     print(f"daily: {added} added, {updated} updated, {len(daily)} total")
+    gaps = missing_days(daily)
+    if gaps:
+        print(f"daily: no row for {', '.join(gaps)}")
 
     acts = load(ACTIVITIES_CSV, "start_utc")
     added = updated = 0
-    for raw in payload.get("activities", []):
-        start = raw["start_utc"]
+    for raw in payload.get("activities") or []:
+        try:
+            start = norm_start(raw["start_utc"])
+        except (KeyError, TypeError, ValueError):
+            print(f"activities: skipping entry without valid start_utc: {raw!r}", file=sys.stderr)
+            continue
         new = convert(raw, ACTIVITY_COLUMNS)
+        if not new:
+            print(f"activities: no data for {start}, skipped")
+            continue
         local = local_time(start, raw.get("utc_offset_s"))
         if local:
             new["start_local"] = local
+        is_new = start not in acts
         row = acts.setdefault(start, {"start_utc": start})
-        is_new = len(row) == 1
         if merge(row, new, now):
             added += is_new
             updated += not is_new
-    save(ACTIVITIES_CSV, ACTIVITY_HEADER, acts, "start_utc")
+    save(ACTIVITIES_CSV, ACTIVITY_HEADER, acts)
     print(f"activities: {added} added, {updated} updated, {len(acts)} total")
 
 
