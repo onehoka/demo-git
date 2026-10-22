@@ -1,0 +1,7 @@
+start_utc,start_local,type,name,duration_min,distance_km,pace_min_km,avg_hr,max_hr,cadence_spm,elev_gain_m,avg_power_w,norm_power_w,gct_ms,vert_osc_mm,vert_ratio_pct,stride_m,air_temp_c,active_kcal,updated_at
+2026-10-15T22:08,2026-10-16T05:08,RUNNING,Tangerang - W3 Fri Easy Run #2 - 3km Easy Ru,41.9,3.524,11.9,129,138,156.2,7,153,153,372.2,56.0,10.2,0.545,30.1,222,2026-10-22T21:09Z
+2026-10-17T22:55,2026-10-18T05:55,STRENGTH_TRAINING,Strength,38.1,,,109,153,,,,,,,,,27.8,160,2026-10-22T21:09Z
+2026-10-17T23:35,2026-10-18T06:35,TREADMILL_RUNNING,W3 Sun Long Run - 4.5km Long Run,33.0,3.41,9.67,134,144,145.8,,145,149,404.7,45.9,6.32,0.711,,239,2026-10-22T21:09Z
+2026-10-18T22:16,2026-10-19T05:16,RUNNING,Tangerang - Easy Run - Sample Workout,37.2,3.613,10.29,140,168,161.8,4,173,177,333.8,59.0,9.63,0.607,30.6,237,2026-10-22T21:09Z
+2026-10-19T22:19,2026-10-20T05:19,RUNNING,Tangerang Running,30.0,2.8,10.72,139,153,161.5,4,167,167,333.8,58.2,9.9,0.583,29.5,184,2026-10-22T21:09Z
+2026-10-20T22:05,2026-10-21T05:05,RUNNING,Tangerang - Interval Claude,44.7,4.503,9.92,143,176,147.2,9,165,187,305.0,59.2,8.48,0.696,29.8,307,2026-10-22T21:09Z
