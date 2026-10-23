@@ -123,6 +123,8 @@ def save(path, header, rows):
     # Write to a temp file and swap it in, so a crash never leaves a half-written CSV.
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
+    # mkstemp creates 0600; keep the CSV's existing mode instead.
+    os.chmod(tmp, path.stat().st_mode & 0o777 if path.exists() else 0o644)
     try:
         with os.fdopen(fd, "w", newline="") as f:
             writer = csv.DictWriter(f, fieldnames=header, extrasaction="ignore")
