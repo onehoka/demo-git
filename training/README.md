@@ -8,7 +8,7 @@ Per minggu: total km, jumlah lari, total relative effort, perubahan km dibanding
 
 ```bash
 python3 training/weekly_report.py                      # 8 minggu terakhir ke layar
-python3 training/weekly_report.py --weeks 12 --out training/reports/$(date +%F).md
+python3 training/weekly_report.py --weeks 12 --out training/reports/$(TZ=Asia/Jakarta date +%F).md
 ```
 
 Catatan:

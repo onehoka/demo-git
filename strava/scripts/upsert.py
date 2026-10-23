@@ -15,12 +15,15 @@ its "activities" list:
 
 Rows are keyed by Strava activity id. An existing row is updated field by
 field: a value present in the input replaces the stored one, a missing value
-never erases what is already stored.
+never erases what is already stored. Running the same file twice is a no-op:
+updated_at only moves when a stored value actually changes.
 """
 
 import csv
 import json
+import os
 import sys
+import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -65,12 +68,21 @@ def load(path):
 
 
 def save(path, rows):
+    # Write to a temp file and swap it in, so a crash never leaves a half-written CSV.
     path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=HEADER, extrasaction="ignore")
-        writer.writeheader()
-        for row in sorted(rows.values(), key=lambda r: (r.get("start_local", ""), r["id"])):
-            writer.writerow({h: row.get(h, "") for h in HEADER})
+    fd, tmp = tempfile.mkstemp(dir=path.parent, prefix=path.name, suffix=".tmp")
+    # mkstemp creates 0600; keep the CSV's existing mode instead.
+    os.chmod(tmp, path.stat().st_mode & 0o777 if path.exists() else 0o644)
+    try:
+        with os.fdopen(fd, "w", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=HEADER, extrasaction="ignore")
+            writer.writeheader()
+            for row in sorted(rows.values(), key=lambda r: (r.get("start_local", ""), r["id"])):
+                writer.writerow({h: row.get(h, "") for h in HEADER})
+        os.replace(tmp, path)
+    except BaseException:
+        os.unlink(tmp)
+        raise
 
 
 def convert(raw):
@@ -84,12 +96,22 @@ def convert(raw):
     return out
 
 
+def same(stored, v):
+    # CSV values come back as strings; compare numbers by value so 139 == "139.0".
+    if str(stored) == str(v):
+        return True
+    try:
+        return float(stored) == float(v)
+    except (TypeError, ValueError):
+        return False
+
+
 def merge(existing, new, now):
-    changed = any(str(existing.get(k, "")) != str(v) for k, v in new.items())
-    if changed:
-        existing.update(new)
+    diff = {k: v for k, v in new.items() if not same(existing.get(k, ""), v)}
+    if diff:
+        existing.update(diff)
         existing["updated_at"] = now
-    return changed
+    return bool(diff)
 
 
 def main(inbox):

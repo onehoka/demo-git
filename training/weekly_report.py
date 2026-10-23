@@ -17,7 +17,7 @@ Per week: km, run count, total relative effort, week-over-week km change
 import argparse
 import csv
 from collections import defaultdict
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -26,6 +26,8 @@ GARMIN_DAILY_CSV = ROOT / "garmin" / "data" / "daily.csv"
 
 RUN_TYPES = {"Run", "TrailRun", "VirtualRun"}
 JUMP_LIMIT_PCT = 10
+# Strava start_local and Garmin dates are WIB, so "today" must be too (runs may happen in UTC).
+WIB = timezone(timedelta(hours=7))
 
 
 def read_csv(path):
@@ -187,7 +189,8 @@ def render(weeks, today):
 def main(argv=None):
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--weeks", type=int, default=8, help="number of weeks to show (default 8)")
-    p.add_argument("--today", type=date.fromisoformat, default=date.today(), help="report date, YYYY-MM-DD")
+    p.add_argument("--today", type=date.fromisoformat, default=datetime.now(WIB).date(),
+                   help="report date, YYYY-MM-DD (default: today in WIB)")
     p.add_argument("--strava", type=Path, default=STRAVA_CSV)
     p.add_argument("--garmin", type=Path, default=GARMIN_DAILY_CSV)
     p.add_argument("--out", type=Path, help="write the report here instead of stdout")
