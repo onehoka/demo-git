@@ -16,10 +16,39 @@ dan dikumpulkan di sini supaya riwayatnya numpuk (freddy plan Free cuma bisa que
 - Hari yang sedang berjalan bisa belum lengkap; sync berikutnya akan meng-update barisnya.
 - Kolom kosong = Garmin nggak punya data (misal jam nggak dipakai tidur).
 
-## Update manual
+## Cara menjalankan `upsert.py`
 
-```bash
-python3 garmin/scripts/upsert.py garmin/inbox/<tanggal>.json
-```
+Butuh Python 3.9+ saja, tanpa library tambahan. Jalankan dari root repo:
 
-Format JSON-nya ada di docstring `scripts/upsert.py`. Update otomatis jalan tiap pagi lewat scheduled task Claude.
+1. Ambil data dari freddy (`query_metrics`) dan simpan sebagai JSON di `garmin/inbox/`
+   (folder ini di-ignore git). Formatnya ada di docstring `scripts/upsert.py`; nama
+   metric pakai nama asli freddy, konversi satuan dikerjakan script.
+2. Jalankan:
+
+   ```bash
+   python3 garmin/scripts/upsert.py garmin/inbox/2026-10-27.json
+   ```
+
+3. Cek output, lalu commit perubahan di `garmin/data/`:
+
+   ```
+   daily: 1 added, 1 updated, 9 total
+   daily: no row for 2026-10-25
+   activities: 1 added, 0 updated, 7 total
+   ```
+
+Hal yang perlu diketahui:
+
+- **Aman dijalankan berulang.** File yang sama dijalankan dua kali tidak mengubah apa-apa;
+  `updated_at` hanya berubah kalau ada nilai yang benar-benar berbeda. Jadi tiap sync
+  boleh ambil 7 hari penuh, overlap dengan data lama bukan masalah.
+- **Nilai kosong tidak menghapus data.** Metric yang tidak ada / `null` di JSON dibiarkan
+  seperti yang sudah tersimpan.
+- **Hari yang hilang.** Hari tanpa data sama sekali tidak dibuatkan baris. Setelah upsert,
+  script menampilkan tanggal yang bolong di `daily.csv` (`no row for ...`). Kalau masih
+  dalam 7 hari terakhir, query ulang tanggal itu di freddy; kalau jam memang nggak
+  dipakai, biarkan saja.
+- Entri dengan tanggal atau `start_utc` yang tidak valid dilewati dengan peringatan,
+  bukan bikin script gagal.
+
+Update otomatis jalan tiap pagi lewat scheduled task Claude.
